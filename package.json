@@ -16,7 +16,7 @@
     "react-scripts": "5.0.1",
     "web-vitals": "^2.1.4"
   },
-  "homepage": "https://Prakhar195.github.io/fitpilot",
+  "homepage": "https://cs571-s26.github.io/p194/",
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
