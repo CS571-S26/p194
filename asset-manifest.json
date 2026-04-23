@@ -1,0 +1,19 @@
+{
+  "files": {
+    "main.css": "/fitpilot/static/css/main.e68f5b2b.css",
+    "main.js": "/fitpilot/static/js/main.2f15ac12.js",
+    "static/js/453.3eed939b.chunk.js": "/fitpilot/static/js/453.3eed939b.chunk.js",
+    "static/media/bench_press.png": "/fitpilot/static/media/bench_press.e35e33560e152b310800.png",
+    "static/media/pull_ups.png": "/fitpilot/static/media/pull_ups.ba84e3e660aea529e37d.png",
+    "static/media/squat.png": "/fitpilot/static/media/squat.8b18040281ab87826796.png",
+    "static/media/pec_deck_fly.png": "/fitpilot/static/media/pec_deck_fly.8896db9892bae96f65f2.png",
+    "index.html": "/fitpilot/index.html",
+    "main.e68f5b2b.css.map": "/fitpilot/static/css/main.e68f5b2b.css.map",
+    "main.2f15ac12.js.map": "/fitpilot/static/js/main.2f15ac12.js.map",
+    "453.3eed939b.chunk.js.map": "/fitpilot/static/js/453.3eed939b.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.e68f5b2b.css",
+    "static/js/main.2f15ac12.js"
+  ]
+}
