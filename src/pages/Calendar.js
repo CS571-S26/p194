@@ -1,18 +1,29 @@
 import { useMemo, useState } from "react";
-import { Container, Row, Col } from "react-bootstrap";
+import { Container, Form, Row, Col } from "react-bootstrap";
 import Card from "../components/Card";
 import Button from "../components/Button";
 import { useFitPilot } from "../context/FitPilotContext";
 import { formatDateLabel, getLocalDateKey, getMonthMatrix, getWorkoutMetrics } from "../utils/fitness";
 
 export default function Calendar() {
-  const { calendarIndex } = useFitPilot();
+  const {
+    calendarIndex,
+    getCalendarDayFatigueBadge,
+    getCalendarMuscleRecoveryByDate,
+    setSorenessFeedback,
+  } = useFitPilot();
   const [referenceMonth, setReferenceMonth] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState(getLocalDateKey());
 
   const days = useMemo(() => getMonthMatrix(referenceMonth), [referenceMonth]);
   const selectedWorkouts = calendarIndex.workoutsByDate[selectedDate] || [];
   const selectedMeals = calendarIndex.mealsByDate[selectedDate] || [];
+  const muscleRecovery = getCalendarMuscleRecoveryByDate(selectedDate);
+  const highestPredictedFatigue = muscleRecovery.reduce(
+    (maximum, entry) => Math.max(maximum, entry.predicted),
+    0
+  );
+  const feedbackCount = muscleRecovery.filter((entry) => entry.actual !== null).length;
 
   return (
     <main className="page-shell">
@@ -75,6 +86,7 @@ export default function Calendar() {
                   {days.map((day) => {
                     const workoutCount = (calendarIndex.workoutsByDate[day.key] || []).length;
                     const mealCount = (calendarIndex.mealsByDate[day.key] || []).length;
+                    const fatigueBadge = getCalendarDayFatigueBadge(day.key);
 
                     return (
                       <button
@@ -88,6 +100,7 @@ export default function Calendar() {
                         <strong>{day.dayOfMonth}</strong>
                         <span>{workoutCount} workouts</span>
                         <span>{mealCount} meals</span>
+                        <span className="calendar-day__fatigue">Fatigue {fatigueBadge}/10</span>
                       </button>
                     );
                   })}
@@ -103,6 +116,54 @@ export default function Calendar() {
                   <p>
                     {selectedWorkouts.length} workouts · {selectedMeals.length} meals
                   </p>
+                  <p>
+                    Predicted peak soreness {highestPredictedFatigue}/10 · {feedbackCount} user ratings
+                  </p>
+                </Card>
+
+                <Card className="detail-card">
+                  <h3>Muscle Recovery</h3>
+                  {muscleRecovery.length === 0 ? (
+                    <p>No completed workouts are influencing this day yet.</p>
+                  ) : (
+                    <div className="muscle-recovery-list">
+                      {muscleRecovery.map((entry) => (
+                        <div key={entry.muscleGroup} className="muscle-recovery-row">
+                          <div className="muscle-recovery-row__meta">
+                            <strong>{entry.muscleGroup}</strong>
+                            <span>Predicted {entry.predicted}/10</span>
+                            <span>
+                              {entry.actual === null ? "Not rated yet" : `Actual ${entry.actual}/10`}
+                            </span>
+                            {entry.delta === null ? null : (
+                              <span>
+                                {entry.delta === 0
+                                  ? "Matches prediction"
+                                  : `${entry.delta > 0 ? "+" : ""}${entry.delta} vs prediction`}
+                              </span>
+                            )}
+                            <p>{entry.recommendation}</p>
+                          </div>
+                          <Form.Control
+                            className="app-input muscle-recovery-row__input"
+                            type="number"
+                            min="0"
+                            max="10"
+                            step="1"
+                            placeholder="0-10"
+                            value={entry.actual ?? ""}
+                            onChange={(event) =>
+                              setSorenessFeedback(
+                                selectedDate,
+                                entry.muscleGroup,
+                                event.target.value === "" ? "" : Number(event.target.value)
+                              )
+                            }
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </Card>
 
                 <Card className="detail-card">

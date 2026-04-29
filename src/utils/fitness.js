@@ -76,9 +76,9 @@ export const muscleGroups = [
   "Back",
   "Legs",
   "Shoulders",
-  "Arms",
+  "Bicep",
+  "Tricep",
   "Core",
-  "Glutes",
   "Full Body",
 ];
 
@@ -256,6 +256,24 @@ export function createMealRecord(meal) {
   };
 }
 
+export function createSorenessRecord(entry = {}) {
+  return {
+    date: entry.date || getLocalDateKey(),
+    muscles:
+      Object.entries(entry.muscles || {}).reduce((accumulator, [muscle, score]) => {
+        const normalizedScore = Number(score);
+        if (!Number.isFinite(normalizedScore)) {
+          return accumulator;
+        }
+
+        return {
+          ...accumulator,
+          [muscle]: Math.max(0, Math.min(10, normalizedScore)),
+        };
+      }, {}) || {},
+  };
+}
+
 export function getSetMetrics(set) {
   const reps = Number(set.reps || 0);
   const weight = Number(set.weight || 0);
@@ -297,6 +315,65 @@ export function getWorkoutMetrics(workout) {
     },
     { totalExercises: 0, totalCompletedSets: 0, totalReps: 0, totalVolume: 0 }
   );
+}
+
+function clamp(value, minimum, maximum) {
+  return Math.min(maximum, Math.max(minimum, value));
+}
+
+export function getSetIntensity(set) {
+  const reps = Number(set.reps || 0);
+  const weight = Number(set.weight || 0);
+
+  if (reps <= 0) {
+    return 0;
+  }
+
+  if (weight > 0) {
+    const estimatedOneRepMax = weight * (1 + reps / 30);
+    return clamp(weight / estimatedOneRepMax, 0.35, 1);
+  }
+
+  return clamp(1 / (1 + reps / 30), 0.35, 0.95);
+}
+
+export function getSetFatigueScore(set, alpha = 0.071) {
+  const metrics = getSetMetrics(set);
+
+  if (!metrics.completed || metrics.reps <= 0) {
+    return 0;
+  }
+
+  const intensity = getSetIntensity(set);
+  const effectiveWeight = metrics.weight > 0 ? metrics.weight : 25;
+  return effectiveWeight * metrics.reps * Math.exp(alpha * intensity * 100);
+}
+
+export function getExerciseFatigueScore(exercise) {
+  return exercise.sets.reduce((total, set) => total + getSetFatigueScore(set), 0);
+}
+
+export function getWorkoutMuscleFatigue(workout) {
+  const rawScores = workout.exercises.reduce((totals, exercise) => {
+    const muscleGroup = exercise.muscleGroup || "Full Body";
+    const fatigueScore = getExerciseFatigueScore(exercise);
+
+    if (fatigueScore <= 0) {
+      return totals;
+    }
+
+    return {
+      ...totals,
+      [muscleGroup]: (totals[muscleGroup] || 0) + fatigueScore,
+    };
+  }, {});
+
+  return Object.entries(rawScores)
+    .sort((left, right) => right[1] - left[1])
+    .map(([muscleGroup, score]) => ({
+      muscleGroup,
+      score,
+    }));
 }
 
 export function getWorkoutPlanMetrics(plan) {
@@ -430,6 +507,114 @@ export function getWorkoutFatigue(workouts, currentWorkout) {
     recentMuscleHitRatio,
     metrics,
   };
+}
+
+const RECOVERY_FACTORS_BY_DAY = {
+  0: 0.7,
+  1: 1,
+  2: 0.6,
+};
+
+function getDayDifference(startDateKey, endDateKey) {
+  const start = new Date(`${startDateKey}T12:00:00`);
+  const end = new Date(`${endDateKey}T12:00:00`);
+  return Math.round((end - start) / (24 * 60 * 60 * 1000));
+}
+
+function normalizeMuscleFatigueScore(rawScore, referenceScore) {
+  if (rawScore <= 0 || referenceScore <= 0) {
+    return 0;
+  }
+
+  return Number(((rawScore / referenceScore) * 10).toFixed(1));
+}
+
+function getRecoveryRecommendation(score) {
+  if (score <= 2) {
+    return "Low fatigue: next session can add 1 set or raise load 2.5-5%.";
+  }
+
+  if (score <= 6) {
+    return "Sweet spot: keep load steady and progress normally.";
+  }
+
+  if (score <= 8) {
+    return "High fatigue: trim next-session volume by about 20%.";
+  }
+
+  return "Very high fatigue: deload or give this muscle an extra rest day.";
+}
+
+export function getCalendarMuscleRecovery(workouts, sorenessByDate, selectedDate) {
+  const completedWorkouts = workouts.filter((workout) => workout.status === "completed");
+  const rawEntries = completedWorkouts.flatMap((workout) => getWorkoutMuscleFatigue(workout));
+  const referenceScore = rawEntries.reduce(
+    (maximum, entry) => Math.max(maximum, entry.score),
+    1
+  );
+
+  const predictedScores = completedWorkouts.reduce((totals, workout) => {
+    const dayDifference = getDayDifference(workout.date, selectedDate);
+    const recoveryFactor = RECOVERY_FACTORS_BY_DAY[dayDifference];
+
+    if (recoveryFactor === undefined) {
+      return totals;
+    }
+
+    return getWorkoutMuscleFatigue(workout).reduce(
+      (muscleTotals, entry) => ({
+        ...muscleTotals,
+        [entry.muscleGroup]:
+          (muscleTotals[entry.muscleGroup] || 0) + entry.score * recoveryFactor,
+      }),
+      totals
+    );
+  }, {});
+
+  const recordedSoreness = sorenessByDate[selectedDate]?.muscles || {};
+  const muscleGroupsForDay = Array.from(
+    new Set([...muscleGroups, ...Object.keys(predictedScores), ...Object.keys(recordedSoreness)])
+  ).sort((left, right) => (predictedScores[right] || 0) - (predictedScores[left] || 0));
+
+  return muscleGroupsForDay.map((muscleGroup) => {
+    const predicted = normalizeMuscleFatigueScore(predictedScores[muscleGroup] || 0, referenceScore);
+    const actual = recordedSoreness[muscleGroup];
+    const actualScore = actual === undefined ? null : Number(actual);
+    const delta = actualScore === null ? null : Number((actualScore - predicted).toFixed(1));
+
+    return {
+      muscleGroup,
+      predicted,
+      actual: actualScore,
+      delta,
+      recommendation: getRecoveryRecommendation(actualScore ?? predicted),
+    };
+  });
+}
+
+export function getCalendarDayFatigueBadge(workouts, selectedDate) {
+  const completedWorkouts = workouts.filter((workout) => workout.status === "completed");
+  const referenceScore = completedWorkouts
+    .flatMap((workout) => getWorkoutMuscleFatigue(workout))
+    .reduce((maximum, entry) => Math.max(maximum, entry.score), 1);
+
+  const predictedMax = completedWorkouts.reduce((maximum, workout) => {
+    const dayDifference = getDayDifference(workout.date, selectedDate);
+    const recoveryFactor = RECOVERY_FACTORS_BY_DAY[dayDifference];
+
+    if (recoveryFactor === undefined) {
+      return maximum;
+    }
+
+    const muscleMax = getWorkoutMuscleFatigue(workout).reduce(
+      (currentMaximum, entry) => Math.max(currentMaximum, entry.score * recoveryFactor),
+      0
+    );
+
+    return Math.max(maximum, muscleMax);
+  }, 0);
+
+  return normalizeMuscleFatigueScore(predictedMax, referenceScore);
 }
 
 function getRelatedCompletedWorkouts(workouts, currentWorkout) {

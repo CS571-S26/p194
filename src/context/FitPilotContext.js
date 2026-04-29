@@ -8,7 +8,10 @@ import {
   createWorkoutPlanRecord,
   createWorkoutPlansFromHistory,
   createWorkoutRecord,
+  createSorenessRecord,
   exerciseLibrary,
+  getCalendarDayFatigueBadge,
+  getCalendarMuscleRecovery,
   getExercisePersonalRecords,
   getLocalDateKey,
   getWorkoutAnalytics,
@@ -23,6 +26,7 @@ const defaultState = {
   workoutPlans: createDefaultWorkoutPlans(),
   workouts: [],
   meals: [],
+  sorenessByDate: {},
 };
 
 function normalizeWorkoutPlan(plan) {
@@ -48,6 +52,13 @@ function normalizeState(rawState) {
       }))
     : [];
   const meals = Array.isArray(rawState?.meals) ? rawState.meals.map(createMealRecord) : [];
+  const sorenessByDate = Object.entries(rawState?.sorenessByDate || {}).reduce(
+    (accumulator, [date, entry]) => ({
+      ...accumulator,
+      [date]: createSorenessRecord({ date, ...(entry || {}) }),
+    }),
+    {}
+  );
   const storedPlans = Array.isArray(rawState?.workoutPlans)
     ? rawState.workoutPlans.map(normalizeWorkoutPlan)
     : [];
@@ -59,6 +70,7 @@ function normalizeState(rawState) {
     workoutPlans,
     workouts,
     meals,
+    sorenessByDate,
   };
 }
 
@@ -340,6 +352,33 @@ export function FitPilotProvider({ children }) {
   const getWorkoutAnalyticsById = (workoutId) =>
     getWorkoutAnalytics(state.workouts, workoutId);
 
+  const setSorenessFeedback = (date, muscleGroup, score) => {
+    setState((currentState) => {
+      const currentEntry = createSorenessRecord(currentState.sorenessByDate[date] || { date });
+      const nextMuscles = { ...currentEntry.muscles };
+
+      if (score === "" || score === null || score === undefined) {
+        delete nextMuscles[muscleGroup];
+      } else {
+        nextMuscles[muscleGroup] = Math.max(0, Math.min(10, Number(score)));
+      }
+
+      return {
+        ...currentState,
+        sorenessByDate: {
+          ...currentState.sorenessByDate,
+          [date]: createSorenessRecord({
+            date,
+            muscles: nextMuscles,
+          }),
+        },
+      };
+    });
+  };
+
+  const getCalendarMuscleRecoveryByDate = (date) =>
+    getCalendarMuscleRecovery(state.workouts, state.sorenessByDate, date);
+
   const calendarIndex = useMemo(() => {
     const workoutsByDate = {};
     const mealsByDate = {};
@@ -361,6 +400,7 @@ export function FitPilotProvider({ children }) {
     workoutPlans: state.workoutPlans,
     workouts: state.workouts,
     meals: state.meals,
+    sorenessByDate: state.sorenessByDate,
     activeWorkout,
     startWorkout,
     createWorkoutPlan,
@@ -378,11 +418,14 @@ export function FitPilotProvider({ children }) {
     addMeal,
     updateMeal,
     deleteMeal,
+    setSorenessFeedback,
     getWorkoutInsights,
     getWorkoutPlanById,
     getWorkoutById,
     getWorkoutAnalyticsById,
+    getCalendarMuscleRecoveryByDate,
     calendarIndex,
+    getCalendarDayFatigueBadge: (date) => getCalendarDayFatigueBadge(state.workouts, date),
   };
 
   return <FitPilotContext.Provider value={value}>{children}</FitPilotContext.Provider>;

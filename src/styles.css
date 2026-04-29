@@ -834,6 +834,17 @@ a {
   font-size: 1rem;
 }
 
+.calendar-day__fatigue {
+  display: inline-flex;
+  width: fit-content;
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: var(--color-primary) !important;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 .calendar-day--muted {
   opacity: 0.55;
 }
@@ -858,6 +869,41 @@ a {
 .calendar-entry strong {
   display: block;
   margin-bottom: 0.3rem;
+}
+
+.muscle-recovery-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.muscle-recovery-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 92px;
+  gap: 0.85rem;
+  align-items: start;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: linear-gradient(180deg, #fff, #f8fbff);
+}
+
+.muscle-recovery-row__meta {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.muscle-recovery-row__meta span {
+  color: var(--color-muted);
+  font-size: 0.92rem;
+}
+
+.muscle-recovery-row__meta p {
+  margin-top: 0.25rem;
+}
+
+.muscle-recovery-row__input {
+  text-align: center;
+  font-weight: 700;
 }
 
 .progression-row {
@@ -906,7 +952,8 @@ a {
   .session-summary-grid,
   .session-exercise-card__fields,
   .workout-plan-editor__grid,
-  .workout-card__stats {
+  .workout-card__stats,
+  .muscle-recovery-row {
     grid-template-columns: 1fr 1fr;
   }
 
@@ -968,7 +1015,8 @@ a {
 
   .session-summary-grid,
   .session-exercise-card__fields,
-  .calendar-grid {
+  .calendar-grid,
+  .muscle-recovery-row {
     grid-template-columns: 1fr;
   }
 }

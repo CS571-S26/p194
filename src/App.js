@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import { BrowserRouter as Router, Navigate, Route, Routes } from "react-router-dom";
 import { FitPilotProvider } from "./context/FitPilotContext";
 import NavigationBar from "./components/NavigationBar";
 import Home from "./pages/Home";
@@ -10,17 +10,23 @@ import WorkoutAnalytics from "./pages/WorkoutAnalytics";
 import "./styles.css";
 
 function App() {
+  const basename = process.env.PUBLIC_URL
+    ? new URL(process.env.PUBLIC_URL, window.location.origin).pathname
+    : "/";
+
   return (
     <FitPilotProvider>
-      <Router>
+      <Router basename={basename}>
         <NavigationBar />
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/home" element={<Navigate to="/" replace />} />
           <Route path="/workouts" element={<Workouts />} />
           <Route path="/workout/:id" element={<WorkoutSession />} />
           <Route path="/workout/:id/analytics" element={<WorkoutAnalytics />} />
           <Route path="/nutrition" element={<Nutrition />} />
           <Route path="/calendar" element={<Calendar />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
     </FitPilotProvider>
