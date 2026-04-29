@@ -28,7 +28,7 @@ export default function Home() {
         <Container>
           <div className="hero__content">
             <span className="hero__eyebrow">Training log and recovery insight</span>
-            <h1>Train Smarter. Eat Better.</h1>
+            <h1>Train Smarter.Eat Better.</h1>
             <p>
               FitPilot helps users organize workouts, track nutrition, and
               log live training, manage meal history, review PRs, and inspect how
